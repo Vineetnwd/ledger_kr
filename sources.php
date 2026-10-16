@@ -42,14 +42,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && ($_POST['action'] ?? '') == 'delete'
     if ($cnt > 0) {
         $_SESSION['error'] = "Cannot delete: $cnt active expense(s) are linked to this source.";
     } else {
-        mysqli_query($conn, "UPDATE expense_sources SET status=0, updated_by=$user_id WHERE id=$sid AND user_id=$user_id");
+        mysqli_query($conn, "UPDATE expense_sources SET status=0, updated_by=$user_id WHERE id=$sid");
         $_SESSION['success'] = "Source deleted.";
     }
     header("Location: " . BASE_URL . "/sources.php");
     exit();
 }
 
-$sources = mysqli_query($conn, "SELECT s.*, COUNT(e.id) as expense_count, COALESCE(SUM(e.amount),0) as total_amount FROM expense_sources s LEFT JOIN expenses e ON e.source_id=s.id AND e.status=1 WHERE s.user_id=$user_id AND s.status=1 GROUP BY s.id ORDER BY s.source_name");
+$count_res = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM expense_sources WHERE status=1");
+$total_sources = (int) mysqli_fetch_assoc($count_res)['cnt'];
+$p = get_pagination_params($total_sources, 20);
+
+$sources = mysqli_query($conn, "SELECT s.*, COUNT(e.id) as expense_count, COALESCE(SUM(e.amount),0) as total_amount FROM expense_sources s LEFT JOIN expenses e ON e.source_id=s.id AND e.status=1 WHERE s.status=1 GROUP BY s.id ORDER BY s.source_name LIMIT {$p['offset']}, {$p['limit']}");
 
 include 'includes/header.php';
 ?>
@@ -72,19 +76,19 @@ include 'includes/header.php';
 <div class="page-content">
     <?= $message ?>
     <div class="card">
-        <div class="card-header"><span>All Sources (<?= mysqli_num_rows($sources) ?>)</span></div>
-        <div class="table-responsive">
-            <table>
+        <div class="card-header"><span>All Sources (<?= $total_sources ?>)</span></div>
+        <div class="table-responsive no-scroll">
+            <table class="table-compact">
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Name</th>
+                        <th class="col-num">#</th>
+                        <th>Source Name</th>
                         <th>Bank</th>
                         <th>Account No.</th>
                         <th>IFSC</th>
-                        <th>Expenses</th>
-                        <th>Total</th>
-                        <th>Action</th>
+                        <th style="width: 80px; text-align: center;">Expenses</th>
+                        <th class="col-amount" style="text-align: right;">Total</th>
+                        <th class="col-action" style="text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -98,19 +102,19 @@ include 'includes/header.php';
                             </td>
                         </tr>
                     <?php else:
-                        $i = 1;
+                        $i = $p['start_record'];
                         while ($row = mysqli_fetch_assoc($sources)): ?>
                             <tr>
-                                <td class="text-muted"><?= $i++ ?></td>
+                                <td class="text-muted col-num"><?= $i++ ?></td>
                                 <td class="fw-bold"><?= htmlspecialchars($row['source_name']) ?></td>
                                 <td><?= htmlspecialchars($row['bank_name'] ?: '—') ?></td>
-                                <td class="text-muted">
+                                <td class="text-muted font-mono">
                                     <?= $row['account_number'] ? '&bull;&bull;&bull;&bull; ' . htmlspecialchars(substr($row['account_number'], -4)) : '—' ?>
                                 </td>
-                                <td class="text-muted"><?= htmlspecialchars($row['ifsc_code'] ?: '—') ?></td>
-                                <td><?= $row['expense_count'] ?></td>
-                                <td class="fw-bold">&#8377;<?= number_format($row['total_amount'], 2) ?></td>
-                                <td>
+                                <td class="text-muted font-mono"><?= htmlspecialchars($row['ifsc_code'] ?: '—') ?></td>
+                                <td style="text-align: center;"><?= $row['expense_count'] ?></td>
+                                <td class="fw-bold col-amount" style="text-align: right;">&#8377;<?= number_format($row['total_amount'], 2) ?></td>
+                                <td class="col-action" style="text-align: center;">
                                     <form method="POST" style="display:inline;"
                                         onsubmit="return confirm('Delete this source?');">
                                         <input type="hidden" name="action" value="delete">
@@ -123,6 +127,7 @@ include 'includes/header.php';
                 </tbody>
             </table>
         </div>
+        <?= render_pagination_bar($p) ?>
     </div>
 </div>
 

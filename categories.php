@@ -17,7 +17,11 @@ if (isset($_SESSION['error'])) {
     unset($_SESSION['error']);
 }
 
-// Fetch parent categories with counts
+// Fetch parent categories with counts and pagination
+$count_parents = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM categories WHERE status = 1 AND parent_id IS NULL");
+$total_parents = (int) mysqli_fetch_assoc($count_parents)['cnt'];
+$p = get_pagination_params($total_parents, 10);
+
 $parents = mysqli_query($conn, "SELECT c.*,
     COUNT(DISTINCT sub.id) as sub_count,
     COUNT(DISTINCT e.id)   as expense_count,
@@ -25,8 +29,9 @@ $parents = mysqli_query($conn, "SELECT c.*,
     FROM categories c
     LEFT JOIN categories sub ON sub.parent_id = c.id AND sub.status = 1
     LEFT JOIN expenses e ON e.category_id = c.id AND e.status = 1
-    WHERE c.user_id = $user_id AND c.status = 1 AND c.parent_id IS NULL
-    GROUP BY c.id ORDER BY c.name");
+    WHERE c.status = 1 AND c.parent_id IS NULL
+    GROUP BY c.id ORDER BY c.name
+    LIMIT {$p['offset']}, {$p['limit']}");
 
 // Pre-fetch sub-categories grouped by parent
 $sub_map = [];
@@ -35,7 +40,7 @@ $sub_result = mysqli_query($conn, "SELECT c.*,
     COALESCE(SUM(e.amount),0) as total_amount
     FROM categories c
     LEFT JOIN expenses e ON e.category_id = c.id AND e.status = 1
-    WHERE c.user_id = $user_id AND c.status = 1 AND c.parent_id IS NOT NULL
+    WHERE c.status = 1 AND c.parent_id IS NOT NULL
     GROUP BY c.id ORDER BY c.name");
 while ($sub = mysqli_fetch_assoc($sub_result)) {
     $sub_map[$sub['parent_id']][] = $sub;
@@ -156,29 +161,29 @@ include 'includes/header.php';
 
                 <!-- Sub-categories List -->
                 <?php if (!empty($sub_map[$parent['id']])): ?>
-                    <div class="table-responsive">
-                        <table>
+                    <div class="table-responsive no-scroll">
+                        <table class="table-compact">
                             <thead>
                                 <tr>
-                                    <th style="padding-left:54px;">Sub-category</th>
-                                    <th>Expenses</th>
-                                    <th>Total Amount</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
+                                    <th style="padding-left:36px;">Sub-category</th>
+                                    <th style="width:110px; text-align:center;">Expenses</th>
+                                    <th class="col-amount" style="text-align:right;">Total Amount</th>
+                                    <th style="width:90px; text-align:center;">Status</th>
+                                    <th class="col-action" style="text-align:center;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($sub_map[$parent['id']] as $sub): ?>
                                     <tr>
-                                        <td style="padding-left:54px;">
+                                        <td style="padding-left:36px;">
                                             <span style="color:#cbd5e1; margin-right:6px; font-size:14px;">&#9492;</span>
                                             <span class="badge badge-info"><?= htmlspecialchars($sub['name']) ?></span>
                                         </td>
-                                        <td style="color:#64748b;"><?= $sub['expense_count'] ?>
+                                        <td style="color:#64748b; text-align:center;"><?= $sub['expense_count'] ?>
                                             expense<?= $sub['expense_count'] != 1 ? 's' : '' ?></td>
-                                        <td style="font-weight:700;">&#8377;<?= number_format($sub['total_amount'], 2) ?></td>
-                                        <td><span class="badge badge-success">Active</span></td>
-                                        <td>
+                                        <td class="fw-bold col-amount" style="text-align:right;">&#8377;<?= number_format($sub['total_amount'], 2) ?></td>
+                                        <td style="text-align:center;"><span class="badge badge-success">Active</span></td>
+                                        <td class="col-action" style="text-align:center;">
                                             <button onclick="editCategory(<?= $sub['id'] ?>, '<?= htmlspecialchars(addslashes($sub['name'])) ?>')" class="btn btn-sm btn-secondary">
                                                 Edit
                                             </button>
@@ -210,7 +215,11 @@ include 'includes/header.php';
 
             </div><!-- /card -->
 
-        <?php endwhile; endif; ?>
+        <?php endwhile; ?>
+        <div style="margin-top: 10px;">
+            <?= render_pagination_bar($p) ?>
+        </div>
+    <?php endif; ?>
 </div><!-- /page-content -->
 
 <!-- ===== ADD PARENT CATEGORY MODAL ===== -->

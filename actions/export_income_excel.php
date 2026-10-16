@@ -21,9 +21,9 @@ $out = fopen('php://output', 'w');
 // UTF-8 BOM for Excel
 fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
 
-fputcsv($out, ['#', 'Date', 'Description', 'Category', 'Source / Account', 'Amount (INR)']);
+fputcsv($out, ['#', 'Date', 'Description', 'Category', 'Source / Account', 'Amount (INR)', 'Added By']);
 
-$result = mysqli_query($conn, "SELECT i.*, s.source_name FROM incomes i LEFT JOIN expense_sources s ON i.source_id=s.id WHERE i.user_id=$user_id AND i.status=1 AND i.income_date BETWEEN '$start_date' AND '$end_date' ORDER BY i.income_date DESC");
+$result = mysqli_query($conn, "SELECT i.*, s.source_name, u.name as added_by FROM incomes i LEFT JOIN expense_sources s ON i.source_id=s.id LEFT JOIN users u ON i.user_id=u.id WHERE i.status=1 AND i.income_date BETWEEN '$start_date' AND '$end_date' ORDER BY i.income_date DESC");
 
 $i = 1; $total = 0;
 while ($row = mysqli_fetch_assoc($result)) {
@@ -33,12 +33,13 @@ while ($row = mysqli_fetch_assoc($result)) {
         $row['description'],
         $row['category'],
         $row['source_name'],
-        $row['amount']
+        $row['amount'],
+        $row['added_by'] ?? '—'
     ]);
     $total += $row['amount'];
 }
 
-fputcsv($out, ['', '', '', '', 'TOTAL', number_format($total, 2)]);
+fputcsv($out, ['', '', '', '', 'TOTAL', number_format($total, 2), '']);
 fclose($out);
 exit();
 ?>

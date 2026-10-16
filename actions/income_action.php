@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     } elseif ($action == 'delete') {
         $income_id = (int) $_POST['income_id'];
-        $q = mysqli_query($conn, "UPDATE incomes SET status=0, updated_by=$user_id WHERE id=$income_id AND user_id=$user_id");
+        $q = mysqli_query($conn, "UPDATE incomes SET status=0, updated_by=$user_id WHERE id=$income_id");
         $_SESSION[$q ? 'success' : 'error'] = $q ? "Income transaction cancelled." : "Failed to cancel income transaction.";
     }
 }

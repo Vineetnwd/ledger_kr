@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     } elseif ($action == 'delete') {
         $expense_id = (int) $_POST['expense_id'];
-        $q = mysqli_query($conn, "UPDATE expenses SET status=0, updated_by=$user_id WHERE id=$expense_id AND user_id=$user_id");
+        $q = mysqli_query($conn, "UPDATE expenses SET status=0, updated_by=$user_id WHERE id=$expense_id");
         $_SESSION[$q ? 'success' : 'error'] = $q ? "Expense cancelled." : "Failed to cancel expense.";
     }
 }

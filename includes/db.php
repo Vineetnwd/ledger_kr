@@ -15,4 +15,6 @@ if (!$conn) {
 }
 
 mysqli_set_charset($conn, "utf8mb4");
+
+require_once __DIR__ . '/functions.php';
 ?>

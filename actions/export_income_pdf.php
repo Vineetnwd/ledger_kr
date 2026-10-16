@@ -13,16 +13,16 @@ $start_date = mysqli_real_escape_string($conn, $_GET['start_date'] ?? date('Y-m-
 $end_date = mysqli_real_escape_string($conn, $_GET['end_date'] ?? date('Y-m-t'));
 
 // Summary
-$sum_r = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM incomes i WHERE i.user_id=$user_id AND i.status=1 AND i.income_date BETWEEN '$start_date' AND '$end_date'");
+$sum_r = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM incomes i WHERE i.status=1 AND i.income_date BETWEEN '$start_date' AND '$end_date'");
 $summary = mysqli_fetch_assoc($sum_r);
 $grand_total = (float) $summary['total'];
 $total_cnt = (int) $summary['cnt'];
 
 // Category breakdown
-$cat_r = mysqli_query($conn, "SELECT category, COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM incomes WHERE user_id=$user_id AND status=1 AND income_date BETWEEN '$start_date' AND '$end_date' GROUP BY category ORDER BY total DESC");
+$cat_r = mysqli_query($conn, "SELECT category, COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM incomes WHERE status=1 AND income_date BETWEEN '$start_date' AND '$end_date' GROUP BY category ORDER BY total DESC");
 
 // Incomes
-$inc_r = mysqli_query($conn, "SELECT i.*, s.source_name FROM incomes i LEFT JOIN expense_sources s ON i.source_id=s.id WHERE i.user_id=$user_id AND i.status=1 AND i.income_date BETWEEN '$start_date' AND '$end_date' ORDER BY i.income_date ASC");
+$inc_r = mysqli_query($conn, "SELECT i.*, s.source_name, u.name as added_by FROM incomes i LEFT JOIN expense_sources s ON i.source_id=s.id LEFT JOIN users u ON i.user_id=u.id WHERE i.status=1 AND i.income_date BETWEEN '$start_date' AND '$end_date' ORDER BY i.income_date ASC");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -489,13 +489,14 @@ $inc_r = mysqli_query($conn, "SELECT i.*, s.source_name FROM incomes i LEFT JOIN
                         <th>Description</th>
                         <th>Category</th>
                         <th>Source / Account</th>
+                        <th>Added By</th>
                         <th style="text-align:right;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (mysqli_num_rows($inc_r) == 0): ?>
                         <tr>
-                            <td colspan="6" style="text-align:center; padding:20px; color:#94a3b8;">No income found in this period.</td>
+                            <td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">No income found in this period.</td>
                         </tr>
                     <?php else:
                         $i = 1;
@@ -506,11 +507,12 @@ $inc_r = mysqli_query($conn, "SELECT i.*, s.source_name FROM incomes i LEFT JOIN
                                 <td><?= htmlspecialchars($row['description'] ?: '—') ?></td>
                                 <td><span class="badge"><?= htmlspecialchars($row['category'] ?? '—') ?></span></td>
                                 <td style="color:#64748b;"><?= htmlspecialchars($row['source_name'] ?? '—') ?></td>
+                                <td style="color:#64748b;"><?= htmlspecialchars($row['added_by'] ?? '—') ?></td>
                                 <td class="amount-col" style="color:#059669;">&#8377;<?= number_format($row['amount'], 2) ?></td>
                             </tr>
                         <?php endwhile; ?>
                         <tr class="total-row">
-                            <td colspan="5" style="text-align:right; padding-right:14px;">Grand Total</td>
+                            <td colspan="6" style="text-align:right; padding-right:14px;">Grand Total</td>
                             <td class="amount-col">&#8377;<?= number_format($grand_total, 2) ?></td>
                         </tr>
                     <?php endif; ?>

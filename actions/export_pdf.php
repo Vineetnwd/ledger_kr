@@ -12,12 +12,13 @@ $user_name = $_SESSION['user_name'] ?? 'User';
 $start_date = mysqli_real_escape_string($conn, $_GET['start_date'] ?? date('Y-m-01'));
 $end_date = mysqli_real_escape_string($conn, $_GET['end_date'] ?? date('Y-m-t'));
 
-$filter_cat = isset($_GET['cat']) ? (int) $_GET['cat'] : 0;
+$cat_raw = $_GET['cat'] ?? '';
+$filter_cat = (int) str_replace('exp_', '', $cat_raw);
 $filter_src = isset($_GET['src']) ? (int) $_GET['src'] : 0;
 
 $extra_sql = "";
 if ($filter_cat > 0) {
-    $is_parent_q = mysqli_query($conn, "SELECT id FROM categories WHERE parent_id=$filter_cat AND user_id=$user_id");
+    $is_parent_q = mysqli_query($conn, "SELECT id FROM categories WHERE parent_id=$filter_cat");
     if (mysqli_num_rows($is_parent_q) > 0) {
         $sub_ids = [];
         while ($sub = mysqli_fetch_assoc($is_parent_q))
@@ -33,16 +34,16 @@ if ($filter_src > 0) {
 }
 
 // Summary
-$sum_r = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM expenses e WHERE e.user_id=$user_id AND e.status=1 AND e.expense_date BETWEEN '$start_date' AND '$end_date' $extra_sql");
+$sum_r = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM expenses e WHERE e.status=1 AND e.expense_date BETWEEN '$start_date' AND '$end_date' $extra_sql");
 $summary = mysqli_fetch_assoc($sum_r);
 $grand_total = (float) $summary['total'];
 $total_cnt = (int) $summary['cnt'];
 
 // Category breakdown
-$cat_r = mysqli_query($conn, "SELECT c.name, COALESCE(SUM(e.amount),0) as total, COUNT(e.id) as cnt FROM categories c JOIN expenses e ON e.category_id=c.id WHERE e.user_id=$user_id AND e.status=1 AND e.expense_date BETWEEN '$start_date' AND '$end_date' $extra_sql GROUP BY c.id ORDER BY total DESC");
+$cat_r = mysqli_query($conn, "SELECT c.name, COALESCE(SUM(e.amount),0) as total, COUNT(e.id) as cnt FROM categories c JOIN expenses e ON e.category_id=c.id WHERE e.status=1 AND e.expense_date BETWEEN '$start_date' AND '$end_date' $extra_sql GROUP BY c.id ORDER BY total DESC");
 
 // Expenses
-$exp_r = mysqli_query($conn, "SELECT e.*, c.name as cat_name, s.source_name FROM expenses e LEFT JOIN categories c ON e.category_id=c.id LEFT JOIN expense_sources s ON e.source_id=s.id WHERE e.user_id=$user_id AND e.status=1 AND e.expense_date BETWEEN '$start_date' AND '$end_date' $extra_sql ORDER BY e.expense_date ASC");
+$exp_r = mysqli_query($conn, "SELECT e.*, c.name as cat_name, s.source_name, u.name as added_by FROM expenses e LEFT JOIN categories c ON e.category_id=c.id LEFT JOIN expense_sources s ON e.source_id=s.id LEFT JOIN users u ON e.user_id=u.id WHERE e.status=1 AND e.expense_date BETWEEN '$start_date' AND '$end_date' $extra_sql ORDER BY e.expense_date ASC");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -510,13 +511,14 @@ $exp_r = mysqli_query($conn, "SELECT e.*, c.name as cat_name, s.source_name FROM
                         <th>Description</th>
                         <th>Category</th>
                         <th>Source</th>
+                        <th>Added By</th>
                         <th style="text-align:right;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (mysqli_num_rows($exp_r) == 0): ?>
                         <tr>
-                            <td colspan="6" style="text-align:center; padding:20px; color:#94a3b8;">No expenses found in this
+                            <td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">No expenses found in this
                                 period.</td>
                         </tr>
                     <?php else:
@@ -528,11 +530,12 @@ $exp_r = mysqli_query($conn, "SELECT e.*, c.name as cat_name, s.source_name FROM
                                 <td><?= htmlspecialchars($row['description'] ?: '—') ?></td>
                                 <td><span class="badge"><?= htmlspecialchars($row['cat_name'] ?? '—') ?></span></td>
                                 <td style="color:#64748b;"><?= htmlspecialchars($row['source_name'] ?? '—') ?></td>
+                                <td style="color:#64748b;"><?= htmlspecialchars($row['added_by'] ?? '—') ?></td>
                                 <td class="amount-col">&#8377;<?= number_format($row['amount'], 2) ?></td>
                             </tr>
                         <?php endwhile; ?>
                         <tr class="total-row">
-                            <td colspan="5" style="text-align:right; padding-right:14px;">Grand Total</td>
+                            <td colspan="6" style="text-align:right; padding-right:14px;">Grand Total</td>
                             <td class="amount-col">&#8377;<?= number_format($grand_total, 2) ?></td>
                         </tr>
                     <?php endif; ?>

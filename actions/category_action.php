@@ -23,9 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if ($is_ajax) { header('Content-Type: application/json'); echo json_encode(['success'=>false, 'error'=>"Category name is required."]); exit; }
             $_SESSION['error'] = "Category name is required.";
         } else {
-            // If parent_id is set, verify it belongs to this user
+            // If parent_id is set, verify it exists and is a top-level category
             if ($parent_id !== 'NULL') {
-                $chk = mysqli_query($conn, "SELECT id FROM categories WHERE id=$parent_id AND user_id=$user_id AND status=1 AND parent_id IS NULL");
+                $chk = mysqli_query($conn, "SELECT id FROM categories WHERE id=$parent_id AND status=1 AND parent_id IS NULL");
                 if (mysqli_num_rows($chk) == 0) {
                     if ($is_ajax) { header('Content-Type: application/json'); echo json_encode(['success'=>false, 'error'=>"Invalid parent category."]); exit; }
                     $_SESSION['error'] = "Invalid parent category.";
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if (empty($name)) {
             $_SESSION['error'] = "Category name is required.";
         } else {
-            $q = mysqli_query($conn, "UPDATE categories SET name='$name', updated_by=$user_id WHERE id=$cat_id AND user_id=$user_id");
+            $q = mysqli_query($conn, "UPDATE categories SET name='$name', updated_by=$user_id WHERE id=$cat_id");
             $_SESSION[$q ? 'success' : 'error'] = $q ? "Category updated successfully." : "Failed to update category.";
         }
 
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } elseif ($sub_cnt > 0) {
             $_SESSION['error'] = "Cannot delete: $sub_cnt sub-category(ies) exist. Delete them first.";
         } else {
-            $q = mysqli_query($conn, "UPDATE categories SET status=0, updated_by=$user_id WHERE id=$cat_id AND user_id=$user_id");
+            $q = mysqli_query($conn, "UPDATE categories SET status=0, updated_by=$user_id WHERE id=$cat_id");
             $_SESSION[$q ? 'success' : 'error'] = $q ? "Deleted successfully." : "Failed to delete.";
         }
     }

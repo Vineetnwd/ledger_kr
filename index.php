@@ -12,45 +12,45 @@ $ms = date('Y-m-01');
 $me = date('Y-m-t');
 
 // Expense This Month
-$r = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE user_id=$user_id AND status=1 AND expense_date BETWEEN '$ms' AND '$me'");
+$r = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status=1 AND expense_date BETWEEN '$ms' AND '$me'");
 $total_month = (float) mysqli_fetch_assoc($r)['total'];
 
 // Income This Month
-$r_inc = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM incomes WHERE user_id=$user_id AND status=1 AND income_date BETWEEN '$ms' AND '$me'");
+$r_inc = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM incomes WHERE status=1 AND income_date BETWEEN '$ms' AND '$me'");
 $total_income_month = (float) mysqli_fetch_assoc($r_inc)['total'];
 
 // Last Month Expense
 $lms = date('Y-m-01', strtotime('-1 month'));
 $lme = date('Y-m-t', strtotime('-1 month'));
-$r2 = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE user_id=$user_id AND status=1 AND expense_date BETWEEN '$lms' AND '$lme'");
+$r2 = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status=1 AND expense_date BETWEEN '$lms' AND '$lme'");
 $total_last = (float) mysqli_fetch_assoc($r2)['total'];
 
 // Last Month Income
-$r_inc_last = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM incomes WHERE user_id=$user_id AND status=1 AND income_date BETWEEN '$lms' AND '$lme'");
+$r_inc_last = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM incomes WHERE status=1 AND income_date BETWEEN '$lms' AND '$lme'");
 $total_income_last = (float) mysqli_fetch_assoc($r_inc_last)['total'];
 
 // All Time
-$r3 = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE user_id=$user_id AND status=1");
+$r3 = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status=1");
 $total_all = (float) mysqli_fetch_assoc($r3)['total'];
 
-$r_inc_all = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM incomes WHERE user_id=$user_id AND status=1");
+$r_inc_all = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM incomes WHERE status=1");
 $total_income_all = (float) mysqli_fetch_assoc($r_inc_all)['total'];
 
 // Counts
-$r4 = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM expenses WHERE user_id=$user_id AND status=1 AND expense_date BETWEEN '$ms' AND '$me'");
+$r4 = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM expenses WHERE status=1 AND expense_date BETWEEN '$ms' AND '$me'");
 $total_txn = (int) mysqli_fetch_assoc($r4)['cnt'];
 
-$r5 = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM categories WHERE user_id=$user_id AND status=1");
+$r5 = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM categories WHERE status=1");
 $total_cats = (int) mysqli_fetch_assoc($r5)['cnt'];
 
-$r6 = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM expense_sources WHERE user_id=$user_id AND status=1");
+$r6 = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM expense_sources WHERE status=1");
 $total_sources = (int) mysqli_fetch_assoc($r6)['cnt'];
 
 $change = ($total_last > 0) ? round((($total_month - $total_last) / $total_last) * 100, 1) : 0;
 $inc_change = ($total_income_last > 0) ? round((($total_income_month - $total_income_last) / $total_income_last) * 100, 1) : 0;
 
 // Category doughnut
-$cat_result = mysqli_query($conn, "SELECT c.name, COALESCE(SUM(e.amount),0) as total FROM categories c LEFT JOIN expenses e ON e.category_id=c.id AND e.user_id=$user_id AND e.status=1 WHERE c.user_id=$user_id AND c.status=1 GROUP BY c.id ORDER BY total DESC LIMIT 8");
+$cat_result = mysqli_query($conn, "SELECT c.name, COALESCE(SUM(e.amount),0) as total FROM categories c LEFT JOIN expenses e ON e.category_id=c.id AND e.status=1 WHERE c.status=1 GROUP BY c.id ORDER BY total DESC LIMIT 8");
 $cat_labels = [];
 $cat_data = [];
 while ($row = mysqli_fetch_assoc($cat_result)) {
@@ -67,25 +67,28 @@ for ($i = 5; $i >= 0; $i--) {
     $te = date('Y-m-t', strtotime("-$i months"));
     $trend_labels[] = date('M Y', strtotime($ts));
     
-    $r7 = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE user_id=$user_id AND status=1 AND expense_date BETWEEN '$ts' AND '$te'");
+    $r7 = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status=1 AND expense_date BETWEEN '$ts' AND '$te'");
     $trend_data[] = (float) mysqli_fetch_assoc($r7)['total'];
 
-    $r8 = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM incomes WHERE user_id=$user_id AND status=1 AND income_date BETWEEN '$ts' AND '$te'");
+    $r8 = mysqli_query($conn, "SELECT COALESCE(SUM(amount),0) as total FROM incomes WHERE status=1 AND income_date BETWEEN '$ts' AND '$te'");
     $trend_income_data[] = (float) mysqli_fetch_assoc($r8)['total'];
 }
 
 // Recent 5 (Combined Expenses and Incomes)
 $recent = mysqli_query($conn, "
-    (SELECT 'expense' as txn_type, e.id, e.amount, e.description, e.expense_date as txn_date, c.name as cat_name, s.source_name 
+    (SELECT 'expense' as txn_type, e.id, e.amount, e.description, e.expense_date as txn_date, 
+            IF(p.name IS NOT NULL, CONCAT(p.name, ' › ', c.name), c.name) as cat_name, 
+            s.source_name 
      FROM expenses e 
      LEFT JOIN categories c ON e.category_id=c.id 
+     LEFT JOIN categories p ON c.parent_id=p.id
      LEFT JOIN expense_sources s ON e.source_id=s.id 
-     WHERE e.user_id=$user_id AND e.status=1)
+     WHERE e.status=1)
     UNION ALL
     (SELECT 'income' as txn_type, i.id, i.amount, i.description, i.income_date as txn_date, i.category as cat_name, s.source_name 
      FROM incomes i 
      LEFT JOIN expense_sources s ON i.source_id=s.id 
-     WHERE i.user_id=$user_id AND i.status=1)
+     WHERE i.status=1)
     ORDER BY txn_date DESC, id DESC LIMIT 5");
 
 include 'includes/header.php';
@@ -177,16 +180,16 @@ include 'includes/header.php';
                 <a href="<?= BASE_URL ?>/expenses.php" class="btn btn-sm btn-outline">View Expenses</a>
             </div>
         </div>
-        <div class="table-responsive">
-            <table>
+        <div class="table-responsive no-scroll">
+            <table class="table-compact">
                 <thead>
                     <tr>
-                        <th>Type</th>
-                        <th>Date</th>
-                        <th>Description</th>
-                        <th>Category</th>
-                        <th>Source</th>
-                        <th>Amount</th>
+                        <th style="width: 85px; text-align: center;">Type</th>
+                        <th class="col-date">Date</th>
+                        <th class="col-desc">Description</th>
+                        <th class="col-cat">Category</th>
+                        <th class="col-source">Source</th>
+                        <th class="col-amount" style="text-align: right;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -202,18 +205,21 @@ include 'includes/header.php';
                     <?php else:
                         while ($row = mysqli_fetch_assoc($recent)): ?>
                             <tr>
-                                <td>
+                                <td style="text-align: center;">
                                     <?php if ($row['txn_type'] == 'income'): ?>
                                         <span class="badge" style="background:rgba(16,185,129,0.1); color:#10b981; border:1px solid rgba(16,185,129,0.2);">Income</span>
                                     <?php else: ?>
                                         <span class="badge badge-info">Expense</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-muted"><?= date('d M Y', strtotime($row['txn_date'])) ?></td>
-                                <td><?= htmlspecialchars($row['description'] ?: '—') ?></td>
-                                <td><span class="badge badge-outline"><?= htmlspecialchars($row['cat_name'] ?? '—') ?></span></td>
-                                <td class="text-muted"><?= htmlspecialchars($row['source_name'] ?? '—') ?></td>
-                                <td class="fw-bold" style="color: <?= $row['txn_type'] == 'income' ? '#10b981' : '#1e293b' ?>;">
+                                <td class="col-date text-muted font-mono"><?= date('d M Y', strtotime($row['txn_date'])) ?></td>
+                                <td class="col-desc" data-tooltip="<?= htmlspecialchars($row['description'] ?: '') ?>"><?= htmlspecialchars($row['description'] ?: '—') ?></td>
+                                <?php $cat_val = $row['cat_name'] ?: '—'; ?>
+                                <td class="col-cat" data-tooltip="<?= htmlspecialchars($cat_val) ?>">
+                                    <span class="badge badge-outline cat-badge" data-tooltip="<?= htmlspecialchars($cat_val) ?>"><?= htmlspecialchars($cat_val) ?></span>
+                                </td>
+                                <td class="col-source text-muted"><?= htmlspecialchars($row['source_name'] ?? '—') ?></td>
+                                <td class="fw-bold col-amount font-mono" style="text-align: right; color: <?= $row['txn_type'] == 'income' ? '#10b981' : '#1e293b' ?>;">
                                     <?= $row['txn_type'] == 'income' ? '+' : '-' ?>&#8377;<?= number_format($row['amount'], 2) ?>
                                 </td>
                             </tr>
